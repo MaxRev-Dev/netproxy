@@ -1,0 +1,20 @@
+{
+  "Mappings": [
+    {
+      "From": "1234",
+      "To": "localhost:3000"
+    },
+    {
+      "From": "3456",
+      "To": "localhost:4000"
+    },
+    {
+      "From": "1234567890",
+      "To": "localhost:4000"
+    },
+    {
+      "From": "*",
+      "To": "localhost:80"
+    }
+  ]
+}
