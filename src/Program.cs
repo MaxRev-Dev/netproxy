@@ -67,8 +67,14 @@ namespace NetProxy
 
                 var route = _mappings.FirstOrDefault(x => x.Contains(result.DeviceId.Value));
                 if (route is null)
-                {
-                    return;
+                { 
+                    // nothing was found in direct and range mappings
+                    // select wildcard one if available
+                    route = _mappings.FirstOrDefault(x => x.IsManyToOne);
+                    if (route is null)
+                    {
+                        return;
+                    }
                 }
 
                 using var proxyClient = new TcpClient
