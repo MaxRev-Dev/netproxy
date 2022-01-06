@@ -51,18 +51,19 @@ namespace NetProxy
             ((IDisposable)_remoteClient).Dispose();
         }
 
-        public const int HeaderStart = 3;
-        public const int DeviceIdSize = 4;
-        public const int HeaderSize = HeaderStart + DeviceIdSize;
+        public const int DeviceIdStart = 5;
+        public const int DeviceIdSize = sizeof(uint);
+        public const int DefaultPeekBufferSize = DeviceIdStart + DeviceIdSize;
 
         public async Task HandleRequest(CancellationToken token = default)
         {
-            var buffer = new byte[HeaderSize];
+            // peek a small amount of payload to see if we can forward it
+            var buffer = new byte[DefaultPeekBufferSize];
             uint deviceId;
             try
             {
                 _remoteClient.Client.Receive(buffer);
-                deviceId = BitConverter.ToUInt32(buffer, HeaderStart);
+                deviceId = BitConverter.ToUInt32(buffer, DeviceIdStart);
             }
             catch
             {

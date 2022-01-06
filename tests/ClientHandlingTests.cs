@@ -38,7 +38,7 @@ namespace NetProxy.Tests
 
             var remoteClientStream = remoteClient.GetStream();
 
-            var buffer = new byte[IncommingTcpClient.HeaderSize];
+            var buffer = new byte[IncommingTcpClient.DefaultPeekBufferSize];
             TestHelpers.CopyIdToBuffer(deviceId!.Value, buffer);
 
             await remoteClientStream.WriteAsync(buffer, token);
@@ -82,9 +82,9 @@ namespace NetProxy.Tests
                 var clientSocket = serviceListener.AcceptSocket();
                 var serverStream = new NetworkStream(clientSocket, false);
 
-                var buffer = new byte[IncommingTcpClient.HeaderSize];
+                var buffer = new byte[IncommingTcpClient.DefaultPeekBufferSize];
                 var received = await serverStream.ReadAsync(buffer, token);
-                Assert.Equal(received, IncommingTcpClient.HeaderSize);
+                Assert.Equal(received, IncommingTcpClient.DefaultPeekBufferSize);
                 buffer = new byte[100];
                 received = await serverStream.ReadAsync(buffer, token);
                 Assert.True(received > 0);
