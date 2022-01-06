@@ -4,7 +4,7 @@ using System.Net;
 
 namespace NetProxy.Configuration.Routes
 {
-    internal class Utils
+    public class Utils
     {
         /// <summary>
         /// Resolves IP endpoint from domin name servers
@@ -12,7 +12,7 @@ namespace NetProxy.Configuration.Routes
         /// <param name="source"></param>
         /// <returns></returns>
         /// <exception cref="FormatException"></exception>
-        internal static IPEndPoint ResloveDns(string source)
+        public static IPEndPoint ResloveDns(string source)
         {
             if (!source.Contains(':'))
                 source = source + ":80";

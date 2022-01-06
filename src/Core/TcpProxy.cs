@@ -1,4 +1,5 @@
 ﻿using NetProxy.Configuration.Routes;
+using NetProxy.Core;
 using System;
 using System.Net;
 using System.Net.Sockets;
@@ -7,7 +8,7 @@ using System.Threading.Tasks;
 namespace NetProxy
 {
     class TcpProxy
-    {
+    { 
         public TcpProxy(RoutesRepository deviceMappings)
         {
             DeviceMappings = deviceMappings;
@@ -37,13 +38,13 @@ namespace NetProxy
             {
                 try
                 {
-                    var acceptedSocket = await server.AcceptTcpClientAsync();
-                    acceptedSocket.NoDelay = true;
+                    var acceptedClient = await server.AcceptTcpClientAsync();
+                    acceptedClient.NoDelay = true;
 
                     // run client thread detached
                     _ = Task.Run(async () =>
                     {
-                        using var client = new TcpClient(router, acceptedSocket);
+                        using var client = new IncommingTcpClient(router, acceptedClient);
                         await client.HandleRequest();
                     });
                 }
