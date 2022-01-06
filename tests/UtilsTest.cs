@@ -11,7 +11,7 @@ namespace NetProxy.Tests
         [MemberData(nameof(Hosts))]
         public void TestDnsResolver(string source, IPEndPoint expected)
         {
-            var actual = Utils.ResloveDns(source);
+            var actual = Utils.ResolveIpFromDns(source);
 
             Assert.Equal( expected, actual);
         }

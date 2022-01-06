@@ -24,7 +24,7 @@ namespace NetProxy.Tests
             const string responseMessage = "Some awesome test";
 
             var targetServer = "localhost:9001";
-            var resolvedIP = Utils.ResloveDns(targetServer);
+            var resolvedIP = Utils.ResolveIpFromDns(targetServer);
 
             // run a simple stub for this request
             var serviceStub = GetServiceStub(resolvedIP, requestMessage, responseMessage, token);

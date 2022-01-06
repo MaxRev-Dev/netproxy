@@ -48,7 +48,7 @@ namespace NetProxy.Configuration.Routes
                 if (value is null)
                     return;
                 var source = value;
-                EndPoint = Utils.ResloveDns(source);
+                EndPoint = Utils.ResolveIpFromDns(source);
                 _to = value;
             }
         }

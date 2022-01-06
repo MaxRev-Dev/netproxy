@@ -12,7 +12,7 @@ namespace NetProxy.Configuration.Routes
         /// <param name="source"></param>
         /// <returns></returns>
         /// <exception cref="FormatException"></exception>
-        public static IPEndPoint ResloveDns(string source)
+        public static IPEndPoint ResolveIpFromDns(string source)
         {
             if (!source.Contains(':'))
                 source = source + ":80";
