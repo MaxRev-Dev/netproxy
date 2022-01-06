@@ -1,5 +1,4 @@
-﻿using NetProxy.Parser;
-using System;
+﻿using System;
 using System.Runtime.InteropServices;
 
 namespace NetProxy.Tests

@@ -1,6 +1,4 @@
-﻿using NetProxy.Configuration.Routes;
-using NetProxy.Parser;
-using System;
+﻿using System;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -60,18 +58,17 @@ namespace NetProxy.Tests
         private static Task StartProxy(string targetServer, uint deviceId, IPEndPoint proxyEndpoint)
         {
             var proxy = new TcpProxy(
-                new RoutesRepository(new[]
-                {
+                new[] {
                     new RouteMapping
                     {
                         From = deviceId.ToString(),
                         To = targetServer
                     }
-                }));
+                });
             return proxy.Start(proxyEndpoint);
         }
 
-        private Task GetServiceStub(System.Net.IPEndPoint resolvedIP, string requestMessage, string responseMessage, CancellationToken token)
+        private Task GetServiceStub(IPEndPoint resolvedIP, string requestMessage, string responseMessage, CancellationToken token)
         {
             return Task.Run(async () =>
             {
