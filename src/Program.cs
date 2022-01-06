@@ -18,14 +18,9 @@ namespace NetProxy
                 var deviceMappingsJson = System.IO.File.ReadAllText("mappings.json");
                 var deviceMappings = JsonSerializer.Deserialize<RouteMapping[]>(deviceMappingsJson);
 
-                await Task.WhenAll(
-                    // start listeners on specified ports
-                    // this will filter duplicates
-                    deviceMappings
-                    .Select(port =>
-                          // create a proxy task with endpoint
-                          new TcpProxy(deviceMappings)
-                            .Start(new IPEndPoint(IPAddress.Any, 3000))));
+                // create a proxy task with endpoint
+                await new TcpProxy(deviceMappings)
+                              .Start(new IPEndPoint(IPAddress.Any, 3000));
             }
             catch (JsonException ex)
             {
@@ -62,60 +57,50 @@ namespace NetProxy
 
         public async Task HandleRequest(CancellationToken token = default)
         {
+            var buffer = new byte[HeaderSize];
+            uint deviceId;
             try
             {
-                var buffer = new byte[HeaderSize];
-                uint deviceId;
-                try
-                {
-                    _remoteClient.Client.Receive(buffer);
-                    deviceId = BitConverter.ToUInt32(buffer, HeaderStart);
-                }
-                catch
-                {
-                    // we can't do nothing here. request is malformed
-                    return;
-                }
+                _remoteClient.Client.Receive(buffer);
+                deviceId = BitConverter.ToUInt32(buffer, HeaderStart);
+            }
+            catch
+            {
+                // we can't do nothing here. request is malformed
+                return;
+            }
 
-                var route = _mappings.FirstOrDefault(x => x.Contains(deviceId));
+            var route = _mappings.FirstOrDefault(x => x.Contains(deviceId));
+            if (route is null)
+            {
+                // nothing was found in direct and range mappings
+                // select wildcard one if available
+                route = _mappings.FirstOrDefault(x => x.IsManyToOne);
                 if (route is null)
                 {
-                    // nothing was found in direct and range mappings
-                    // select wildcard one if available
-                    route = _mappings.FirstOrDefault(x => x.IsManyToOne);
-                    if (route is null)
-                    {
-                        return;
-                    }
+                    return;
                 }
-
-                using var proxyClient = new TcpClient
-                {
-                    NoDelay = true
-                };
-                await proxyClient.ConnectAsync(route.EndPoint.Address, route.EndPoint.Port, token);
-
-                Console.WriteLine($"Established {_clientEndpoint} => {proxyClient.Client.RemoteEndPoint}");
-
-                using var serverStream = proxyClient.GetStream();
-
-                // send the buffer (header) that we read from client before
-                await serverStream.WriteAsync(buffer, token);
-
-                using var remoteStream = _remoteClient.GetStream();
-
-                await Task.WhenAll(
-                    remoteStream.CopyToAsync(serverStream, token), // copy remaining message body
-                    serverStream.CopyToAsync(remoteStream, token));
             }
-            catch (ObjectDisposedException)
+
+            using var proxyClient = new TcpClient
             {
-                // connection aborted
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine("Error during client request handling: " + ex.Message);
-            }
+                NoDelay = true
+            };
+
+            await proxyClient.ConnectAsync(route.EndPoint.Address, route.EndPoint.Port, token);
+
+            Console.WriteLine($"Established {_clientEndpoint} => {proxyClient.Client.RemoteEndPoint}");
+
+            using var serverStream = proxyClient.GetStream();
+
+            // send the buffer (header) that we read from client before
+            await serverStream.WriteAsync(buffer, token);
+
+            using var remoteStream = _remoteClient.GetStream();
+
+            await Task.WhenAll(
+                remoteStream.CopyToAsync(serverStream, token), // copy remaining message body
+                serverStream.CopyToAsync(remoteStream, token));
         }
     }
 
@@ -144,32 +129,24 @@ namespace NetProxy
 
             Console.WriteLine($"TCP proxy started {localEndPoint.Port}");
 
-            var router = DeviceMappings;
-
             while (true)
             {
-                try
-                {
-                    var acceptedClient = await server.AcceptTcpClientAsync();
-                    acceptedClient.NoDelay = true;
+                var acceptedClient = await server.AcceptTcpClientAsync();
+                acceptedClient.NoDelay = true;
 
-                    // run client thread detached
-                    _ = Task.Run(async () =>
+                // run client thread detached
+                _ = Task.Run(async () =>
+                {
+                    using var client = new IncommingTcpClient(DeviceMappings, acceptedClient);
+                    try
                     {
-                        using var client = new IncommingTcpClient(router, acceptedClient);
                         await client.HandleRequest();
-                    });
-                }
-                catch (SocketException ex)
-                {
-                    Console.WriteLine(ex.ToString());
-                }
-                catch (ObjectDisposedException ex)
-                {
-                    Console.ForegroundColor = ConsoleColor.Red;
-                    Console.WriteLine(ex);
-                    Console.ResetColor();
-                }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine("Failed to handle client request: " + ex.ToString());
+                    }
+                });
             }
         }
     }
