@@ -65,18 +65,17 @@ namespace NetProxy
             try
             {
                 var buffer = new byte[HeaderSize];
-                int received = 0;
                 uint deviceId;
                 try
                 {
-                    received = _remoteClient.Client.Receive(buffer);
+                    _remoteClient.Client.Receive(buffer);
                     deviceId = BitConverter.ToUInt32(buffer, HeaderStart);
                 }
                 catch
                 {
                     // we can't do nothing here. request is malformed
                     return;
-                } 
+                }
 
                 var route = _mappings.FirstOrDefault(x => x.Contains(deviceId));
                 if (route is null)
@@ -174,7 +173,7 @@ namespace NetProxy
             }
         }
     }
-     
+
     public class RouteMapping
     {
         private string _to;
