@@ -21,8 +21,8 @@ namespace NetProxy.Tests
             const string requestMessage = "Request";
             const string responseMessage = "Some awesome test";
 
-            var targetServer = "localhost:9001";
-            var resolvedIP = Utils.ResolveIpFromDns(targetServer);
+            var targetServer = "127.0.0.1:9001";
+            var resolvedIP = IPEndPoint.Parse(targetServer); 
 
             // run a simple stub for this request
             var serviceStub = GetServiceStub(resolvedIP, requestMessage, responseMessage, token);
@@ -38,7 +38,7 @@ namespace NetProxy.Tests
 
             var remoteClientStream = remoteClient.GetStream();
 
-            var buffer = new byte[DeviceIdParser.HeaderSize];
+            var buffer = new byte[IncommingTcpClient.HeaderSize];
             TestHelpers.CopyIdToBuffer(deviceId!.Value, buffer);
 
             await remoteClientStream.WriteAsync(buffer, token);
@@ -82,9 +82,9 @@ namespace NetProxy.Tests
                 var clientSocket = serviceListener.AcceptSocket();
                 var serverStream = new NetworkStream(clientSocket, false);
 
-                var buffer = new byte[DeviceIdParser.HeaderSize];
+                var buffer = new byte[IncommingTcpClient.HeaderSize];
                 var received = await serverStream.ReadAsync(buffer, token);
-                Assert.Equal(received, DeviceIdParser.HeaderSize);
+                Assert.Equal(received, IncommingTcpClient.HeaderSize);
                 buffer = new byte[100];
                 received = await serverStream.ReadAsync(buffer, token);
                 Assert.True(received > 0);

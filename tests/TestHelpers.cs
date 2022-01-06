@@ -10,7 +10,7 @@ namespace NetProxy.Tests
             public static void CopyIdToBuffer(uint deviceId, byte[] buffer)
             {
                 var sliceOfId = buffer.AsSpan()
-                    .Slice(DeviceIdParser.HeaderStart, DeviceIdParser.DeviceIdSize);
+                    .Slice(IncommingTcpClient.HeaderStart, IncommingTcpClient.DeviceIdSize);
                 MemoryMarshal.Write(sliceOfId, ref deviceId);
             }
         }

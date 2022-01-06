@@ -56,18 +56,31 @@ namespace NetProxy
             ((IDisposable)_remoteClient).Dispose();
         }
 
+        public const int HeaderStart = 3;
+        public const int DeviceIdSize = 4;
+        public const int HeaderSize = HeaderStart + DeviceIdSize;
+
         public async Task HandleRequest(CancellationToken token = default)
         {
             try
             {
-                if (!DeviceIdParser.RetrivePacket(_remoteClient.Client, out DeviceIdRequestPartial result))
+                var buffer = new byte[HeaderSize];
+                int received = 0;
+                uint deviceId;
+                try
                 {
-                    return;
+                    received = _remoteClient.Client.Receive(buffer);
+                    deviceId = BitConverter.ToUInt32(buffer, HeaderStart);
                 }
+                catch
+                {
+                    // we can't do nothing here. request is malformed
+                    return;
+                } 
 
-                var route = _mappings.FirstOrDefault(x => x.Contains(result.DeviceId.Value));
+                var route = _mappings.FirstOrDefault(x => x.Contains(deviceId));
                 if (route is null)
-                { 
+                {
                     // nothing was found in direct and range mappings
                     // select wildcard one if available
                     route = _mappings.FirstOrDefault(x => x.IsManyToOne);
@@ -88,7 +101,7 @@ namespace NetProxy
                 using var serverStream = proxyClient.GetStream();
 
                 // send the buffer (header) that we read from client before
-                await serverStream.WriteAsync(result.Buffer!, token);
+                await serverStream.WriteAsync(buffer, token);
 
                 using var remoteStream = _remoteClient.GetStream();
 
@@ -161,19 +174,7 @@ namespace NetProxy
             }
         }
     }
-
-    internal struct DeviceIdRequestPartial
-    {
-        public DeviceIdRequestPartial(uint? deviceId, byte[] buffer)
-        {
-            DeviceId = deviceId;
-            Buffer = buffer;
-        }
-
-        public uint? DeviceId { get; }
-        public byte[] Buffer { get; }
-    }
-
+     
     public class RouteMapping
     {
         private string _to;
@@ -188,7 +189,11 @@ namespace NetProxy
 
         public string From
         {
-            get => _from;
+            get
+            {
+                return _from;
+            }
+
             set
             {
                 _from = value;
@@ -201,7 +206,10 @@ namespace NetProxy
         public bool Contains(uint id)
         {
             if (_allowed.Contains(id))
+            {
                 return true;
+            }
+
             return _ranges.Any(x => x.Contains(id));
         }
 
@@ -224,7 +232,13 @@ namespace NetProxy
         }
 
         public IPEndPoint EndPoint { get; private set; }
-        public bool IsManyToOne => _from == "*";
+        public bool IsManyToOne
+        {
+            get
+            {
+                return _from == "*";
+            }
+        }
 
         public string To
         {
@@ -232,9 +246,12 @@ namespace NetProxy
             set
             {
                 if (value is null)
+                {
                     return;
+                }
+
                 var source = value;
-                EndPoint = Utils.ResolveIpFromDns(source);
+                EndPoint = IPEndPoint.Parse(source);
                 _to = value;
             }
         }
@@ -253,69 +270,6 @@ namespace NetProxy
             {
                 return id >= From && id <= To;
             }
-        }
-    }
-    internal class DeviceIdParser
-    {
-        public const int HeaderStart = 3;
-        public const int DeviceIdSize = 4;
-        public const int HeaderSize = HeaderStart + DeviceIdSize;
-
-        public static bool RetrivePacket(Socket socket, out DeviceIdRequestPartial result, int? bufferSize = default)
-        {
-            int length = bufferSize ?? HeaderSize;
-            Span<byte> buffer = length <= 1024 ? stackalloc byte[length] : new byte[length];
-            int received = 0;
-            try
-            {
-                received = socket.Receive(buffer);
-                var deviceId = BitConverter.ToUInt32(buffer.Slice(HeaderStart, DeviceIdSize));
-                result = new DeviceIdRequestPartial(deviceId, buffer.ToArray());
-                return true;
-            }
-            catch (ArgumentOutOfRangeException)
-            {
-                // format error in memory marshal
-            }
-            catch (ArgumentException)
-            {
-                // format error in memory marshal
-            }
-            catch (ObjectDisposedException)
-            {
-                // should be a closed connection
-            }
-            catch (SocketException)
-            {
-                // some problems with socket connection
-            }
-            result = new(null, null);
-            return false;
-        }
-    }
-
-    public class Utils
-    {
-        /// <summary>
-        /// Resolves IP endpoint from domin name servers
-        /// </summary>
-        /// <param name="source"></param>
-        /// <returns></returns>
-        /// <exception cref="FormatException"></exception>
-        public static IPEndPoint ResolveIpFromDns(string source)
-        {
-            if (!source.Contains(':'))
-                source = source + ":80";
-
-            var partials = source.Split(':');
-            if (partials.Length != 2)
-                throw new FormatException("Invalid endpoint format");
-            if (!int.TryParse(partials[1], out var port))
-                throw new FormatException("Invalid port");
-            var address = Dns.GetHostAddresses(partials[0]).FirstOrDefault();
-            if (address is null)
-                throw new FormatException("Dns record of address not found");
-            return new IPEndPoint(address, port);
         }
     }
 }
