@@ -1,9 +1,11 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.26228.9
+# Visual Studio Version 17
+VisualStudioVersion = 17.1.31911.260
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "netproxy", "netproxy.csproj", "{AC513BBF-C809-4F0D-812F-EE92BE67171B}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "NetProxy", "src\NetProxy.csproj", "{AC513BBF-C809-4F0D-812F-EE92BE67171B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NetProxy.Tests", "tests\NetProxy.Tests.csproj", "{C7539A4F-5F36-43FD-945A-341501CC6C60}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,8 +17,15 @@ Global
 		{AC513BBF-C809-4F0D-812F-EE92BE67171B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AC513BBF-C809-4F0D-812F-EE92BE67171B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AC513BBF-C809-4F0D-812F-EE92BE67171B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C7539A4F-5F36-43FD-945A-341501CC6C60}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C7539A4F-5F36-43FD-945A-341501CC6C60}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C7539A4F-5F36-43FD-945A-341501CC6C60}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C7539A4F-5F36-43FD-945A-341501CC6C60}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {71054608-D0B3-497A-983A-F52B4443D3C2}
 	EndGlobalSection
 EndGlobal
