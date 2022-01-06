@@ -16,8 +16,9 @@ namespace NetProxy.Configuration.Routes
             // this ctor mainly for configuration binder
         }
 
-        public RouteMapping(string from, string to)
+        public RouteMapping(uint port, string from, string to)
         {
+            Port = port;
             From = from;
             To = to;
         }
@@ -27,6 +28,7 @@ namespace NetProxy.Configuration.Routes
 
         public uint? FromValue { get; private set; }
 
+        public uint? Port { get; set; } = 3000; // default port
 
         public string? From
         {
@@ -46,18 +48,7 @@ namespace NetProxy.Configuration.Routes
                 if (value is null)
                     return;
                 var source = value;
-                if (!source.Contains(':'))
-                    source = source + ":80";
-
-                var partials = source.Split(':');
-                if (partials.Length != 2)
-                    throw new FormatException("Invalid endpoint format");
-                if (!int.TryParse(partials[1], out var port))
-                    throw new FormatException("Invalid port");
-                var address = Dns.GetHostAddresses(partials[0]).FirstOrDefault();
-                if (address is null)
-                    throw new FormatException("Dns record of address not found");
-                EndPoint = new IPEndPoint(address, port);
+                EndPoint = Utils.ResloveDns(source);
                 _to = value;
             }
         }
