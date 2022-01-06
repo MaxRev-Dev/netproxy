@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
-using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -99,7 +98,7 @@ namespace NetProxy
             {
                 Console.WriteLine("Error during client request handling: " + ex.Message);
             }
-        } 
+        }
     }
 
     class TcpProxy
@@ -159,18 +158,14 @@ namespace NetProxy
 
     internal struct DeviceIdRequestPartial
     {
-        public DeviceIdRequestPartial(int received, uint? deviceId, byte[] buffer)
+        public DeviceIdRequestPartial(uint? deviceId, byte[] buffer)
         {
             DeviceId = deviceId;
             Buffer = buffer;
-            Received = received;
         }
 
         public uint? DeviceId { get; }
         public byte[] Buffer { get; }
-        public int Received { get; }
-
-        public bool IsValid() => Buffer != null && DeviceId.HasValue;
     }
 
     public class RouteMapping
@@ -268,8 +263,8 @@ namespace NetProxy
             try
             {
                 received = socket.Receive(buffer);
-                var deviceId = MemoryMarshal.Read<uint>(buffer.Slice(HeaderStart, DeviceIdSize));
-                result = new DeviceIdRequestPartial(received, deviceId, buffer.ToArray());
+                var deviceId = BitConverter.ToUInt32(buffer.Slice(HeaderStart, DeviceIdSize));
+                result = new DeviceIdRequestPartial(deviceId, buffer.ToArray());
                 return true;
             }
             catch (ArgumentOutOfRangeException)
@@ -288,7 +283,7 @@ namespace NetProxy
             {
                 // some problems with socket connection
             }
-            result = new(received, null, null);
+            result = new(null, null);
             return false;
         }
     }
