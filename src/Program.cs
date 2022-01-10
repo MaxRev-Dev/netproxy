@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -55,15 +56,15 @@ namespace NetProxy
         public const int DeviceIdSize = sizeof(uint);
         public const int DefaultPeekBufferSize = DeviceIdStart + DeviceIdSize;
 
-        public async Task HandleRequest(CancellationToken token = default)
+        public void HandleRequest(CancellationToken token = default)
         {
             // peek a small amount of payload to see if we can forward it
             var buffer = new byte[DefaultPeekBufferSize];
             uint deviceId;
             try
             {
-                _remoteClient.Client.Receive(buffer);
-                deviceId = BitConverter.ToUInt32(buffer, DeviceIdStart);
+                _remoteClient.Client.Receive(buffer, SocketFlags.Peek);
+                deviceId = MemoryMarshal.Read<uint>(buffer.AsSpan().Slice(DeviceIdStart, DeviceIdSize));
             }
             catch
             {
@@ -88,24 +89,30 @@ namespace NetProxy
                 NoDelay = true
             };
 
-            await proxyClient.ConnectAsync(route.EndPoint.Address, route.EndPoint.Port, token);
+            proxyClient.Connect(route.EndPoint.Address, route.EndPoint.Port);
 
-            Console.WriteLine($"Established {_clientEndpoint} => {proxyClient.Client.RemoteEndPoint}");
+            //Console.WriteLine($"Established {_clientEndpoint} => {proxyClient.Client.RemoteEndPoint}");
 
             using var serverStream = proxyClient.GetStream();
 
-            // send the buffer (header) that we read from client before
-            await serverStream.WriteAsync(buffer, token);
-
             using var remoteStream = _remoteClient.GetStream();
-
-            await Task.WhenAll(
-                remoteStream.CopyToAsync(serverStream, token), // copy remaining message body
-                serverStream.CopyToAsync(remoteStream, token));
+            Task.WaitAll(new[]{
+                remoteStream.CopyToAsync(serverStream, token),
+                serverStream.CopyToAsync(remoteStream, token) }, token);
+        }
+        private static void CopyData(NetworkStream nsSource, NetworkStream nsTarget, int sendBufferSize = 256)
+        {
+            Span<byte> sendBuffer = sendBufferSize < 1024 ? stackalloc byte[sendBufferSize] : new byte[sendBufferSize];
+            int read;
+            while (nsSource.DataAvailable &&
+                (read = nsSource.Read(sendBuffer)) > 0)
+            {
+                nsTarget.Write(sendBuffer.Slice(0, read));
+            }
         }
     }
 
-    class TcpProxy
+    public class TcpProxy
     {
         public TcpProxy(IList<RouteMapping> deviceMappings)
         {
@@ -120,7 +127,7 @@ namespace NetProxy
             server.Server.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.IPv6Only, false);
             try
             {
-                server.Start();
+                server.Start(int.MaxValue);
             }
             catch (SocketException ex) when (ex.SocketErrorCode == SocketError.AddressAlreadyInUse)
             {
@@ -132,22 +139,33 @@ namespace NetProxy
 
             while (true)
             {
-                var acceptedClient = await server.AcceptTcpClientAsync();
-                acceptedClient.NoDelay = true;
-
-                // run client thread detached
-                _ = Task.Run(async () =>
+                while (!server.Pending())
                 {
-                    using var client = new IncommingTcpClient(DeviceMappings, acceptedClient);
-                    try
+                    Thread.Sleep(10);
+                }
+                try
+                {
+                    var acceptedClient = await server.AcceptTcpClientAsync();
+                    acceptedClient.NoDelay = true;
+
+                    // run client thread detached
+                    _ = Task.Factory.StartNew(() =>
                     {
-                        await client.HandleRequest();
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine("Failed to handle client request: " + ex.ToString());
-                    }
-                });
+                        using var client = new IncommingTcpClient(DeviceMappings, acceptedClient);
+                        try
+                        {
+                            client.HandleRequest();
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine("Failed to handle client request: " + ex.ToString());
+                        }
+                    }, TaskCreationOptions.PreferFairness);
+                }
+                catch (SocketException)
+                {
+                    Console.WriteLine("Failed to accept connection");
+                }
             }
         }
     }
@@ -174,6 +192,8 @@ namespace NetProxy
             set
             {
                 _from = value;
+                if (_from == "*")
+                    return;
                 if (!string.IsNullOrEmpty(value))
                 {
                     FromRawInput(value);
