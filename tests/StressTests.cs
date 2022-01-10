@@ -22,6 +22,7 @@ namespace NetProxy.Tests
 
         private ITestOutputHelper _output;
         private uint deviceId;
+        private volatile float clientTimeAverageMs = 0;
         const string requestMessage = "Request";
 
         const string targetServer = "127.0.0.1:9000";
@@ -29,8 +30,7 @@ namespace NetProxy.Tests
 
         public StressTests(ITestOutputHelper output)
         {
-            _output = output;
-            var random = new Random();
+            _output = output; 
             deviceId = 50000;
             var proxyPort = 15000;
             proxyEndpoint = new IPEndPoint(IPAddress.Loopback, proxyPort);
@@ -41,36 +41,21 @@ namespace NetProxy.Tests
         public async Task RunStressTest(int requestsCount)
         {
             var resolvedIP = IPEndPoint.Parse(targetServer);
-
-            var cts = new CancellationTokenSource();
-            //cts.CancelAfter(30000);
-            var token = cts.Token;
-
-            // start proxy listener
-            int threadsActive = requestsCount;
-            _output.WriteLine($"Requests count {requestsCount}");
-            var stopwatch = new Stopwatch();
-            var barrier = new Barrier(requestsCount, (b) =>
-            {
-                if (b.CurrentPhaseNumber == 1)
-                {
-                    stopwatch.Start();
-                }
-            });
-
+            var token = CancellationToken.None;
             await Task.WhenAll(Enumerable.Range(0, requestsCount)
                 .Select(x => new TcpClient())
                 .Select(remoteClient =>
             {
                 return Task.Run(async () =>
                 {
+                    var clientStopwatch = new Stopwatch();
                     using (remoteClient)
                         try
-                        {
+                        { 
                             remoteClient.NoDelay = true;
                             remoteClient.Client.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.IPv6Only, false);
                             await remoteClient.ConnectAsync(proxyEndpoint.Address, proxyEndpoint.Port);
-
+                            clientStopwatch.Start();
                             var remoteClientStream = remoteClient.GetStream();
 
                             var buffer = new byte[IncommingTcpClient.DefaultPeekBufferSize];
@@ -83,16 +68,16 @@ namespace NetProxy.Tests
                             buffer = new byte[100];
                             var read = await remoteClientStream.ReadAsync(buffer, token);
                             Assert.True(read > 0);
+                            clientStopwatch.Stop();
+                            Interlocked.Exchange(ref clientTimeAverageMs, clientTimeAverageMs + clientStopwatch.ElapsedMilliseconds / requestsCount);
                         }
                         catch (Exception ex)
                         {
-                            _output.WriteLine(ex.Message);
-
+                            _output.WriteLine(ex.Message); 
                         }
                 }, token);
             }));
-            stopwatch.Stop();
-            _output.WriteLine($"Elapsed: {stopwatch.ElapsedMilliseconds} ms");
+            _output.WriteLine($"Client time average: {clientTimeAverageMs} ms"); 
         }
     }
 }

@@ -59,12 +59,12 @@ namespace NetProxy
         public void HandleRequest(CancellationToken token = default)
         {
             // peek a small amount of payload to see if we can forward it
-            var buffer = new byte[DefaultPeekBufferSize];
+            Span<byte> buffer = stackalloc byte[DefaultPeekBufferSize];
             uint deviceId;
             try
             {
                 _remoteClient.Client.Receive(buffer, SocketFlags.Peek);
-                deviceId = MemoryMarshal.Read<uint>(buffer.AsSpan().Slice(DeviceIdStart, DeviceIdSize));
+                deviceId = MemoryMarshal.Read<uint>(buffer.Slice(DeviceIdStart, DeviceIdSize));
             }
             catch
             {
@@ -96,16 +96,16 @@ namespace NetProxy
             using var serverStream = proxyClient.GetStream();
 
             using var remoteStream = _remoteClient.GetStream();
+
             Task.WaitAll(new[]{
-                remoteStream.CopyToAsync(serverStream, token),
-                serverStream.CopyToAsync(remoteStream, token) }, token);
+                remoteStream.CopyToAsync(serverStream, 4096, token),
+                serverStream.CopyToAsync(remoteStream, 4096, token) }, token);
         }
-        private static void CopyData(NetworkStream nsSource, NetworkStream nsTarget, int sendBufferSize = 256)
+        private static void CopyData(NetworkStream nsSource, NetworkStream nsTarget, int sendBufferSize = 512)
         {
             Span<byte> sendBuffer = sendBufferSize < 1024 ? stackalloc byte[sendBufferSize] : new byte[sendBufferSize];
             int read;
-            while (nsSource.DataAvailable &&
-                (read = nsSource.Read(sendBuffer)) > 0)
+            while ((read = nsSource.Read(sendBuffer)) > 0)
             {
                 nsTarget.Write(sendBuffer.Slice(0, read));
             }

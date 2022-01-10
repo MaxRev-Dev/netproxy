@@ -26,7 +26,7 @@ namespace NetProxy.Stub
                 Console.CursorVisible = false;
                 while (true)
                 {
-                    Thread.Sleep(100);
+                    Thread.Sleep(1000);
                     Console.SetCursorPosition(0, 0);
                     Console.WriteLine("Accepted clients: " + acceptedClients + tab);
                     Console.WriteLine("Failed connections: " + failedClients + tab);
